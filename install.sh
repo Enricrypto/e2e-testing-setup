@@ -54,8 +54,15 @@ mkdir -p scripts
 
 echo "✓ Created directory structure"
 
-# Copy template files (these would come from the repo)
-# For now, we'll create them inline
+# Copy template files from repository
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [ -d "$SCRIPT_DIR/template/docs" ]; then
+  cp "$SCRIPT_DIR/template/docs"/*.md docs/
+  echo "✓ Copied E2E documentation from template"
+else
+  echo "⚠ Template docs not found, will create them inline"
+fi
 
 # Copy playwright config
 cat > frontend/e2e/playwright.config.ts << 'PLAYWRIGHT_EOF'
@@ -378,6 +385,36 @@ PIPELINE_EOF
 chmod +x scripts/phase3-pipeline.sh
 
 echo "✓ Copied phase3-pipeline.sh"
+
+# Verify documentation files exist
+if [ ! -f "docs/E2E_DEEP_AUDIT_CHECKLIST.md" ]; then
+  echo "⚠️  Documentation files not found in template/"
+  echo "    Downloading from repository..."
+
+  # Try to download from GitHub
+  REPO_URL="https://raw.githubusercontent.com/enriqueibarra/e2e-testing-setup/main/template/docs"
+
+  mkdir -p docs
+  for doc in "E2E_DEEP_AUDIT_CHECKLIST.md" "E2E_PIPELINE_AUDIT.md" "E2E_SEMANTIC_LOCATORS.md" "PHASE_3_AUTOMATED_PIPELINE.md"; do
+    curl -s "$REPO_URL/$doc" -o "docs/$doc" 2>/dev/null && echo "✓ Downloaded $doc" || echo "⚠ Could not download $doc"
+  done
+
+  # If download failed, provide instructions
+  if [ ! -f "docs/E2E_DEEP_AUDIT_CHECKLIST.md" ]; then
+    echo ""
+    echo "❌ Documentation files could not be installed automatically."
+    echo ""
+    echo "Please run this from the e2e-testing-setup repository root:"
+    echo "  cd /path/to/e2e-testing-setup"
+    echo "  bash install.sh"
+    echo ""
+    echo "Or manually copy the docs:"
+    echo "  cp template/docs/*.md /your/project/docs/"
+    exit 1
+  fi
+fi
+
+echo "✓ E2E documentation ready"
 
 # Update package.json scripts
 if ! grep -q '"test:e2e"' package.json; then
