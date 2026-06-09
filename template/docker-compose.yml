@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: e2e_postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-test_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-test_password}
+      POSTGRES_DB: ${DB_NAME:-test_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      # Database data persists between runs
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-test_user}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - e2e-network
+
+  # Backend API Server
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: e2e_backend
+    environment:
+      # Database connection (inside docker network, use service name)
+      DATABASE_URL: postgres://${DB_USER:-test_user}:${DB_PASSWORD:-test_password}@postgres:5432/${DB_NAME:-test_db}
+
+      # Node environment
+      NODE_ENV: ${NODE_ENV:-test}
+
+      # API port
+      API_PORT: 3001
+    ports:
+      # Expose to host machine (for E2E tests)
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - e2e-network
+    # Restart on failure
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  e2e-network:
+    driver: bridge

@@ -41,6 +41,88 @@ your-project/
 
 ---
 
+## 🐳 Docker Setup (Backend + Database)
+
+This system is optimized for **Docker + Local Tests**:
+- Backend API + Database run in Docker containers
+- E2E tests run locally for fast iteration and debugging
+- Perfectly mimics production environment
+
+### Quick Start with Docker
+
+```bash
+# 1. Start backend + database in Docker
+docker-compose up
+
+# 2. Start frontend dev server (new terminal)
+npm run dev
+
+# 3. Run E2E tests locally (new terminal)
+npm run test:e2e:local
+```
+
+### Why Docker?
+
+| Component | Where | Why |
+|-----------|-------|-----|
+| **Frontend Dev Server** | Local | Hot reload, instant feedback |
+| **E2E Tests** | Local | 10x faster, see output immediately, easy debugging |
+| **Backend + Database** | Docker | Production-like, isolated, easy reset |
+
+**Result:** Tests run in ~30 seconds with production-like backend.
+
+**For detailed setup:** Read `docs/E2E_DOCKER_SETUP.md` after installation.
+
+---
+
+## 🧠 MemoryKit Integration (Compounds Knowledge)
+
+This system includes **MemoryKit** integration for autonomous learning across E2E features.
+
+### What This Means
+
+Each time you run the pipeline:
+1. **Planner** retrieves prior test patterns for similar features
+2. **Generator** learns from prior test patterns and reuses them
+3. **Healer** uses prior failure patterns to diagnose issues faster
+4. **Consolidator** extracts learnings after tests merge
+
+### Knowledge Compounding
+
+```
+Feature 1: Dashboard listing page
+  Time: 40 minutes (baseline)
+  Learnings stored: JWT cleanup timing, table pagination patterns
+
+Feature 2: Similar admin dashboard
+  Time: 35 minutes (5% faster, retrieved JWT pattern)
+
+Feature 5: Another dashboard variant
+  Time: 25 minutes (35% faster, multiple patterns consolidated)
+
+Feature 10: Another dashboard page
+  Time: 24 minutes (40% faster, full knowledge compounding)
+```
+
+### MemoryKit Setup
+
+MemoryKit is optional but strongly recommended. Without it, each feature starts from scratch.
+
+**To enable:**
+1. Verify MemoryKit MCP is installed and running
+   ```bash
+   # MemoryKit should be available in Claude Code
+   # If not installed, follow: https://github.com/antoniorapozo/memorykit-mcp
+   ```
+
+2. When you run the pipeline, agents will automatically:
+   - Retrieve prior patterns at start
+   - Store new learnings after completion
+
+No additional configuration needed—the pipeline automatically uses MemoryKit if available.
+
+---
+
 ## 📋 How This System Works
 
 ### The Three Core Principles
@@ -72,9 +154,56 @@ Developer starts → Reads Global Skill
 
 ---
 
-## 🏗️ Architecture: The 8-Step Pipeline
+## 🔍 Code-Reading Enforcement
 
-This system runs through **8 automated steps**. Here's what happens at each:
+This system enforces **actual code reading** instead of assumptions:
+
+### Why Code Reading Matters
+
+```
+❌ ASSUMPTION-BASED (fails):
+  Planner: "User clicks Save button"
+  Generator: "API returns { success: true }"
+  Tests pass locally
+  Production: API structure changed, test caught nothing
+
+✅ CODE-READING BASED (works):
+  Planner: Reads component code → finds exact button text "Create New"
+  Generator: Reads API code → finds response { listings[], total_count }
+  Tests verify actual code behavior
+  Production: Changes caught because tests match reality
+```
+
+### What This Means for You
+
+- **Planner reads code** before creating test plans (routes, components, APIs)
+- **Generator verifies code** before generating tests (responses, selectors, structure)
+- **Every test assertion** references actual code
+- **False assumptions caught early** (not in CI/production)
+
+**For details:** Read `docs/E2E_CODE_READING_GUIDE.md` after installation.
+
+---
+
+## 🏗️ Architecture: The 9-Step Pipeline
+
+This system runs through **9 automated steps** (including code-reading enforcement). Here's what happens at each:
+
+### Phase -1: Production-Readiness (Validation)
+
+**Step -1: PRODUCTION-READINESS CHECK** 🔍
+
+**What happens:**
+- System verifies code is production-ready (not mock-heavy)
+- Checks API endpoints use real data
+- Checks frontend components don't have dev overrides
+- Ensures test data matches actual validation rules
+
+**Why:** Testing mocks catches nothing. False coverage is worse than no coverage.
+
+**Output:** Confirmation that code is ready for E2E testing
+
+---
 
 ### Phase 0: Pre-Generation (Manual by Developer)
 
@@ -253,17 +382,32 @@ await expect(page.getByText(/listings \(\d+\)/i)).toBeVisible()
 
 ## 🤖 The AI Agents
 
-This system uses **three AI agents** that work together:
+This system uses **four AI agents** that work together with MemoryKit:
 
-### Agent 1: Planner (Exploration)
+### Agent 1: Planner (Exploration + Memory-Aware + Code-Reading)
 
 **What it does:**
+- **[Phase 1 Memory]** Retrieves prior test patterns for similar features
+- **[Phase 3 Code-Reading]** Reads router, component, and API files (mandatory)
+- Creates code-reading report with file:line references
 - Reads your codebase understanding (Phase 0)
 - Explores your app via Playwright MCP
-- Maps actual user flows
+- Maps actual user flows (verified against code)
 - Documents happy paths, errors, edge cases
+- **[Phase 1 Memory]** Stores test plan findings to memory
 
 **When it runs:** Step 3 of pipeline
+
+**Code-Reading Enforcement:**
+- Reads actual route handler (verifies route exists, checks auth)
+- Reads actual component (lists UI elements with exact text)
+- Reads actual API endpoint (copies response structure from code)
+- Reports if assumptions don't match code (stops early, prevents false tests)
+
+**Memory Integration:**
+- Retrieves context: `mcp__memorykit__retrieve_context("e2e: feature-name")`
+- Surfaces prior patterns that succeeded or failed
+- Stores test plan to memory for future reference
 
 **Prompt it receives:**
 ```
@@ -284,16 +428,33 @@ Return: Markdown test plan with happy paths, errors, edge cases.
 3. Let it explore your app
 4. Copy the test plan back
 
-### Agent 2: Generator (Code Creation)
+### Agent 2: Generator (Code Creation + Memory-Aware + Code-Verification)
 
 **What it does:**
+- **[Phase 2 Memory]** Retrieves prior test patterns (auth flows, table pagination, etc.)
+- **[Phase 3 Code-Verification]** Verifies API contracts against actual code
+- **[Phase 3 Code-Verification]** Verifies selectors match actual component code
 - Reads the test plan from Planner
-- Understands semantic locator patterns (from skill)
-- Generates Playwright test code
+- Generates Playwright test code with code references
 - Creates POM (Page Object Model) classes
+- **Reuses proven patterns** from memory
+- **[Phase 2 Memory]** Stores new patterns to memory
 - Follows all best practices
 
 **When it runs:** Step 4 of pipeline
+
+**Code-Verification Enforcement:**
+- Reads actual endpoint handler (verifies response structure, error codes)
+- Reads actual component JSX (verifies selectors match exact text/roles)
+- Reads validation rules (verifies test data matches schema)
+- Reports mismatches (stops before generating false tests)
+- Includes code references in test comments (file:line for every assertion)
+
+**Memory Integration:**
+- Retrieves context: `mcp__memorykit__retrieve_context("e2e: test-patterns")`
+- Surfaces "Patterns Recommended for Reuse", "Patterns to Watch", "Patterns to Avoid"
+- Applies recommended patterns to generated code
+- Stores generated patterns for future features
 
 **Prompt it receives:**
 ```
@@ -322,15 +483,22 @@ STRICT requirements:
 3. Let it generate code
 4. Copy the generated code back
 
-### Agent 3: Healer (Failure Diagnosis)
+### Agent 3: Healer (Failure Diagnosis + Memory-Aware)
 
 **What it does:**
+- **[Phase 3 Memory]** Retrieves prior failure patterns and solutions
 - Reads test failures
-- Diagnoses why tests fail
-- Suggests fixes (code or test logic)
+- Diagnoses why tests fail (with code reading, not assumptions)
+- Suggests fixes based on prior solutions
 - Explains the root cause
+- **Autonomous iteration** — optionally attempts up to 3 fixes before escalating
 
 **When it runs:** Only if Step 7 (test execution) fails
+
+**Memory Integration:**
+- Retrieves context: `mcp__memorykit__retrieve_context("e2e: failures")`
+- Surfaces prior failure patterns and how they were solved
+- Applies solutions from memory first
 
 **How you use it:**
 1. Copy the test failure output
@@ -343,6 +511,36 @@ STRICT requirements:
    Suggest fixes. Root cause analysis. Return fixed code.
    ```
 4. Get the fix, update the test, re-run
+
+### Agent 4: Consolidator (Post-Merge Learning)
+
+**What it does:**
+- **[Phase 4 Memory]** Runs after PR is merged and tests pass for 24+ hours
+- Extracts patterns that succeeded
+- Documents patterns to watch
+- Identifies patterns to avoid
+- Computes time metrics for similar features
+- Stores comprehensive learnings for future features
+
+**When it runs:** After E2E tests are merged and verified in production/staging
+
+**Output:** Consolidation report with:
+- Metrics (time per agent, total iterations, confidence levels)
+- Patterns that succeeded (100% success rate)
+- Patterns to watch (needed debugging)
+- Patterns to avoid (failed)
+- Time estimates for next similar feature
+- Risk adjustments
+
+**Memory Storage:**
+```
+mcp__memorykit__store_memory(
+  title: "E2E Consolidation: Feature Name",
+  content: "[consolidation report]",
+  tags: ["e2e", "consolidation", "feature-name"],
+  scope: "project"
+)
+```
 
 ---
 
@@ -360,16 +558,22 @@ e2e-testing-setup/                # Bootstrap package (you are here)
 │
 └── template/                      # Files copied into projects
     ├── frontend/e2e/
-    │   ├── playwright.config.ts   # Config (environment-aware)
+    │   ├── playwright.config.ts   # Config (environment-aware + Docker support)
     │   ├── tests/                 # Where tests go
     │   ├── pom/                   # Page Object Models
     │   └── utils/                 # Test utilities
     │
-    ├── docs/                      # Documentation (4 essential guides)
-    │   ├── E2E_DEEP_AUDIT_CHECKLIST.md      # Phase 0: before pipeline
-    │   ├── E2E_PIPELINE_AUDIT.md            # Phase 8: after pipeline
-    │   ├── PHASE_3_AUTOMATED_PIPELINE.md    # Reference: complete flow
-    │   └── E2E_SEMANTIC_LOCATORS.md         # Reference: locator patterns
+    ├── docs/                      # Documentation (7 essential guides)
+    │   ├── E2E_CODE_READING_GUIDE.md          # Code-reading enforcement for agents
+    │   ├── E2E_DOCKER_SETUP.md                # Docker + Local E2E guide
+    │   ├── E2E_PRODUCTION_READINESS.md       # Phase -1: validate code first
+    │   ├── E2E_DEEP_AUDIT_CHECKLIST.md       # Phase 0: before pipeline
+    │   ├── E2E_PIPELINE_AUDIT.md             # Phase 8: after pipeline
+    │   ├── PHASE_3_AUTOMATED_PIPELINE.md     # Reference: complete flow
+    │   └── E2E_SEMANTIC_LOCATORS.md          # Reference: locator patterns
+    │
+    ├── docker-compose.yml         # Docker Compose for backend + database
+    ├── backend-Dockerfile.example # Example backend Dockerfile
     │
     └── scripts/
         └── phase3-pipeline.sh     # Orchestrator script
@@ -382,7 +586,7 @@ When you run `install.sh`, it copies `template/` into your project:
 ```
 your-project/
 ├── frontend/e2e/
-│   ├── playwright.config.ts           # Playwright config
+│   ├── playwright.config.ts           # Playwright config (Docker + env-aware)
 │   ├── tests/                         # Test files directory
 │   │   └── 01-dashboard/             # Example: dashboard feature
 │   │       ├── dashboard.spec.ts      # Generated by pipeline
@@ -395,10 +599,15 @@ your-project/
 │       └── test-data.ts
 │
 ├── docs/                              # 👈 COPIED FROM TEMPLATE
+│   ├── E2E_DOCKER_SETUP.md            # Docker + Local E2E best practices
+│   ├── E2E_PRODUCTION_READINESS.md    # Phase -1: Validate code before tests
 │   ├── E2E_DEEP_AUDIT_CHECKLIST.md    # Phase 0: Read BEFORE pipeline
 │   ├── E2E_PIPELINE_AUDIT.md          # Phase 8: Read AFTER pipeline
 │   ├── PHASE_3_AUTOMATED_PIPELINE.md  # Reference: How pipeline works
 │   └── E2E_SEMANTIC_LOCATORS.md       # Reference: Locator patterns
+│
+├── docker-compose.yml                 # 👈 Docker setup (backend + database)
+├── backend-Dockerfile.example         # 👈 Example Dockerfile for backend
 │
 └── scripts/
     └── phase3-pipeline.sh             # Run this for each feature
@@ -408,14 +617,29 @@ your-project/
 
 | File | When to Read | What It Does |
 |------|-------------|--------------|
+| **E2E_CODE_READING_GUIDE.md** | **Before Planner/Generator run** | How agents read code to avoid assumptions. Red flags, checklists, examples. Critical for accurate tests. |
+| **E2E_DOCKER_SETUP.md** | **First time setup** | Complete Docker setup guide. How to run backend/database in Docker while tests run locally. Includes troubleshooting. |
+| **E2E_PRODUCTION_READINESS.md** | **BEFORE Phase 0** | Validates code is production-ready (not mock-heavy). Checks APIs, components, test data. |
 | **E2E_DEEP_AUDIT_CHECKLIST.md** | **BEFORE** running pipeline | Guides you to audit your codebase (Phase 0). Ensures AI understands real code. |
 | **E2E_PIPELINE_AUDIT.md** | **AFTER** pipeline generates tests | Guides you to verify tests match actual code (Phase 8). Prevents false coverage. |
-| **PHASE_3_AUTOMATED_PIPELINE.md** | Anytime (reference) | Explains the complete 8-step flow. Read when you want to understand what's happening. |
+| **PHASE_3_AUTOMATED_PIPELINE.md** | Anytime (reference) | Explains the complete 9-step flow. Read when you want to understand what's happening. |
 | **E2E_SEMANTIC_LOCATORS.md** | When writing/reviewing tests | Reference guide for Playwright locators. Best practices for finding elements. |
 
 ---
 
 ## 🔄 Real Example: Testing a Dashboard
+
+### What You Do (Phase -1 - Production-Readiness)
+
+**First, validate the code is production-ready:**
+```bash
+# Read E2E_PRODUCTION_READINESS.md checklist
+- [ ] API endpoints use real database (not hardcoded)
+- [ ] Frontend has no dev overrides (if isDev branches)
+- [ ] Test data matches actual validation rules
+
+# Confirm all checks pass before proceeding
+```
 
 ### What You Do (Phase 0 - Audit)
 
@@ -495,37 +719,55 @@ bash <(curl -s https://raw.githubusercontent.com/youruser/e2e-testing-setup/main
 # 2. Verify installation
 ls frontend/e2e/
 ls docs/
+ls docker-compose.yml
 
-# 3. Start your app
-npm run dev  # Terminal 1
+# 3. Configure Docker (if using backend in Docker)
+# Read the Docker setup guide and create backend/Dockerfile
+cat docs/E2E_DOCKER_SETUP.md
+
+# 4. Start backend + database (Terminal 1)
+docker-compose up
+
+# 5. Start your frontend app (Terminal 2)
+npm run dev
 ```
 
 ### For Each Feature
 
 ```bash
-# Terminal 2
+# Terminal 3 (while docker-compose and npm run dev are running)
 
-# 1. Read Phase 0 audit checklist
+# 0. (First time only) Verify Docker setup
+# Make sure docker-compose up is running (terminal 1)
+# Make sure npm run dev is running (terminal 2)
+curl http://localhost:3001/health  # Backend should respond
+curl http://localhost:3000         # Frontend should respond
+
+# 1. Read Phase -1 (Production-Readiness Check)
+cat docs/E2E_PRODUCTION_READINESS.md
+# Verify code is production-ready (not mock-heavy)
+
+# 2. Read Phase 0 audit checklist
 cat docs/E2E_DEEP_AUDIT_CHECKLIST.md
 
-# 2. Document your feature
+# 3. Document your feature
 # (What routes exist, what flows, what edge cases)
 
-# 3. Run the pipeline
+# 4. Run the pipeline
 ./scripts/phase3-pipeline.sh "feature-name" "/page/path"
 
-# 4. When prompts appear:
+# 5. When prompts appear:
 #    - Copy prompt to Cursor/Claude chat
 #    - Let AI explore/generate
 #    - Copy results back to terminal
 
-# 5. Read Phase 8 audit checklist
+# 6. Read Phase 8 audit checklist
 cat docs/E2E_PIPELINE_AUDIT.md
 
-# 6. Verify each test
+# 7. Verify each test
 # (Do assertions match actual code? Are edge cases covered?)
 
-# 7. Commit
+# 8. Commit
 git add frontend/e2e/
 git commit -m "feat(e2e): Add feature tests"
 ```

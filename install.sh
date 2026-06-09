@@ -64,23 +64,58 @@ else
   echo "⚠ Template docs not found, will create them inline"
 fi
 
+# Copy docker-compose.yml template
+if [ -f "$SCRIPT_DIR/template/docker-compose.yml" ]; then
+  cp "$SCRIPT_DIR/template/docker-compose.yml" ./docker-compose.yml
+  echo "✓ Copied docker-compose.yml template"
+else
+  echo "⚠ docker-compose.yml template not found"
+fi
+
+# Copy backend Dockerfile example
+if [ -f "$SCRIPT_DIR/template/backend-Dockerfile.example" ]; then
+  cp "$SCRIPT_DIR/template/backend-Dockerfile.example" ./backend-Dockerfile.example
+  echo "✓ Copied backend Dockerfile example (see backend-Dockerfile.example)"
+fi
+
 # Copy playwright config
 cat > frontend/e2e/playwright.config.ts << 'PLAYWRIGHT_EOF'
 import { defineConfig, devices } from '@playwright/test'
 
+// Environment configuration
 const env = process.env.TEST_ENV || 'local'
+const isLocal = env === 'local'
+const isCI = !!process.env.CI
+
+// Backend URL (for API calls in tests)
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001'
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000'
+
+// Timeout configuration per environment
 const timeoutConfig = {
   local: {
     actionTimeout: 5000,
     navigationTimeout: 15000,
     testTimeout: 30000,
-    name: 'Local Dev',
+    name: 'Local Development',
+  },
+  docker: {
+    actionTimeout: 10000,
+    navigationTimeout: 20000,
+    testTimeout: 60000,
+    name: 'Docker (Backend in Container)',
+  },
+  ci: {
+    actionTimeout: 15000,
+    navigationTimeout: 30000,
+    testTimeout: 120000,
+    name: 'CI/CD Pipeline',
   },
   staging: {
     actionTimeout: 15000,
     navigationTimeout: 30000,
     testTimeout: 60000,
-    name: 'Staging (Realistic)',
+    name: 'Staging Environment',
   },
   production: {
     actionTimeout: 25000,
@@ -99,22 +134,22 @@ export default defineConfig({
   expect: { timeout: 10000 },
 
   fullyParallel: true,
-  workers: process.env.CI ? 1 : 4,
+  workers: isCI ? 1 : 4,
 
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  retries: isCI ? 1 : 0,
 
   reporter: [
     ['html'],
     ['list'],
-    ...(process.env.CI ? [
+    ...(isCI ? [
       ['json', { outputFile: 'test-results/results.json' }],
       ['junit', { outputFile: 'test-results/results.xml' }],
     ] : []),
   ],
 
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: FRONTEND_URL,
     actionTimeout: timeoutConfig.actionTimeout,
     navigationTimeout: timeoutConfig.navigationTimeout,
     trace: 'retain-on-failure',
@@ -124,8 +159,8 @@ export default defineConfig({
 
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
+    url: FRONTEND_URL,
+    reuseExistingServer: !isCI,
     timeout: 120000,
   },
 
@@ -138,12 +173,17 @@ export default defineConfig({
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
     },
-    {
-      name: 'mobile-chrome',
-      use: { ...devices['Pixel 5'] },
-    },
+    ...(isLocal ? [] : [
+      {
+        name: 'mobile-chrome',
+        use: { ...devices['Pixel 5'] },
+      },
+    ]),
   ],
 })
+
+// Export for test fixtures
+export const BACKEND_API_URL = BACKEND_URL
 PLAYWRIGHT_EOF
 
 echo "✓ Copied playwright.config.ts"
@@ -183,6 +223,31 @@ fi
 echo "✓ App running on localhost:3000"
 echo ""
 
+# Step -1: Production-readiness check
+echo "🔍 STEP -1: Production-Readiness Validation"
+echo "==========================================="
+echo ""
+echo "Before writing E2E tests, verify the code is production-ready (not mock-heavy)."
+echo ""
+echo "Read: docs/E2E_PRODUCTION_READINESS.md"
+echo ""
+echo "Quick checks:"
+echo "  [ ] API endpoints use real data (not hardcoded responses)"
+echo "  [ ] Frontend components don't have dev overrides (if (isDev) branches)"
+echo "  [ ] Test data matches actual schema validation rules"
+echo ""
+read -p "Is code production-ready? (y/n) " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+  echo "Cancelled. Fix code to remove mocks/hardcoded data, then re-run."
+  echo "Read docs/E2E_PRODUCTION_READINESS.md for details."
+  exit 1
+fi
+
+echo ""
+echo "✓ Production-readiness confirmed"
+echo ""
+
 # Step 0: Remind about Phase 0 audit
 echo "📋 STEP 0: Phase 0 Audit (Pre-Generation)"
 echo "=========================================="
@@ -215,20 +280,151 @@ echo ""
 echo "Copy this prompt into Cursor/Claude and run the Planner:"
 echo ""
 cat << 'PLANNER'
-Using Playwright MCP, create a test plan for this feature.
+You are the E2E Planner Agent. Your job is to create a test plan by reading actual code and exploring the app.
+
+## Before Starting
+
+**[PHASE 1: Memory Retrieval]**
+Retrieve prior E2E patterns for similar features:
+```
+mcp__memorykit__retrieve_context("e2e: {{FEATURE_NAME}}")
+```
+
+Surface any prior patterns found:
+- What test patterns succeeded (e.g., "authentication flows need 200ms JWT cleanup")
+- What issues to watch for (e.g., "table pagination tests fail without waitForLoadState")
+- What to avoid (e.g., "CSS class selectors are brittle")
+
+## MANDATORY: Code Reading Requirements
+
+**CRITICAL:** You MUST read actual code before exploring the app. Every assertion must reference actual code.
+
+### 1. Read the Router File (REQUIRED)
+
+Find and read the actual route file for {{PAGE_PATH}}:
+- [ ] Locate route handler (src/routes, src/pages/api, app/api, etc.)
+- [ ] Verify route {{PAGE_PATH}} exists (don't assume)
+- [ ] Read HTTP method (GET/POST/PUT/DELETE)
+- [ ] Check auth middleware (is authentication required?)
+- [ ] Check role-based access (do users need specific roles?)
+- [ ] Note all response status codes (200, 401, 403, 500, etc.)
+
+**Output Example:**
+```
+Route: {{PAGE_PATH}}
+  ✓ File: src/routes/listings.ts
+  ✓ Method: GET
+  ✓ Auth: Required (via verifyAuth middleware)
+  ✓ Role: Must be 'advertiser' or 'admin'
+  ✓ Success: HTTP 200
+  ✓ Auth error: HTTP 401
+  ✓ Permission error: HTTP 403
+```
+
+### 2. Read the Component File (REQUIRED)
+
+Find and read the actual component for {{PAGE_PATH}}:
+- [ ] Locate component file (src/components, src/pages, app/page.tsx, etc.)
+- [ ] List EVERY UI element (heading, button, input, link, etc.)
+- [ ] Copy EXACT text/labels (don't paraphrase)
+- [ ] Check for conditional rendering (if/else, {condition && ...})
+- [ ] Document loading state (how does "loading" display?)
+- [ ] Document error state (how does "error" display?)
+- [ ] Document empty state (how does "no data" display?)
+
+**Output Example:**
+```
+Component: src/components/DashboardPage.tsx
+  ✓ Heading: "My Listings" (exact text, line 15)
+  ✓ Button: "Create New" (exact text, line 42)
+  ✓ Loading: Shows <Spinner /> from loading state
+  ✓ Empty: Shows text "No listings created yet" (line 52)
+  ✓ Error: Shows error in <ErrorAlert /> component
+```
+
+### 3. Read the API Endpoint (REQUIRED)
+
+Find and read the API endpoint your feature uses:
+- [ ] Locate API handler file
+- [ ] Read exact request parameters
+- [ ] Copy exact response structure (field names, types)
+- [ ] Document all error responses (status + message)
+- [ ] Verify endpoint is NOT hardcoded/mocked (real data)
+
+**Output Example:**
+```
+Endpoint: GET /api/v1/listings
+  ✓ File: src/api/listings.ts
+  ✓ Success response:
+    {
+      listings: [ { id, title, status, created_at } ],
+      total_count: number,
+      has_next: boolean
+    }
+  ✓ Errors:
+    401: { error: "Unauthorized" }
+    403: { error: "Access denied" }
+    500: { error: "Server error" }
+```
+
+### 4. Trace State Management (REQUIRED)
+
+Find how component fetches and displays data:
+- [ ] Read fetch/API calls (where does data come from?)
+- [ ] Check loading state trigger (when does loading show?)
+- [ ] Check error handling (what displays on error?)
+- [ ] Verify cleanup (is state cleared properly?)
+
+**Output Example:**
+```
+State Flow: DashboardPage.tsx
+  ✓ Fetch: await fetch('/api/v1/listings')
+  ✓ Loading: Shows <Spinner /> during fetch
+  ✓ Error: Catches and displays in <ErrorAlert />
+  ✓ Success: Renders <ListingTable data={listings} />
+  ✓ Empty: Shows "No listings created yet" when listings.length === 0
+```
+
+## Exploration & Planning
 
 Feature: {{FEATURE_NAME}}
 Page: {{PAGE_PATH}}
 App: http://localhost:3000
 
-Explore the page and document:
-1. Happy path (what should work)
-2. Error scenarios (what can fail)
-3. Edge cases (unusual situations)
-4. Expected behaviors
+Using Playwright MCP, explore the page:
+1. Verify code-reading findings (routes/components/APIs exist as documented above)
+2. Happy path flow (step-by-step with exact text from code)
+3. Error scenarios (match actual error responses from code)
+4. Edge cases (match actual empty/loading states from code)
+5. Expected behaviors (exact text, loading behavior, error messages)
 
-Format: Markdown with clear sections.
-Return a test plan document.
+Reference any prior patterns from memory to inform your plan.
+
+**CRITICAL:** Every test scenario must reference actual code lines.
+
+Format: Markdown with clear sections and code references.
+Return a comprehensive test plan document.
+
+## Memory Storage (Phase 1)
+
+After creating the plan, store insights:
+```
+mcp__memorykit__store_memory(
+  title: "E2E Test Plan: {{FEATURE_NAME}}",
+  content: "Code-reading findings + test plan:\n[include code references and plan]",
+  tags: ["e2e", "test-plan", "code-reading", "{{FEATURE_NAME}}"],
+  scope: "project"
+)
+```
+
+## Enforcement
+
+If you cannot find code to verify a test scenario:
+- STOP — do not assume
+- Report what's missing
+- Example: "Cannot find Delete button in component. Component has: Heading, Edit button, Cancel button. No Delete."
+
+This prevents false test coverage.
 PLANNER
 
 echo ""
@@ -248,35 +444,180 @@ echo ""
 echo "Copy this prompt into Cursor/Claude and run the Generator:"
 echo ""
 cat << 'GENERATOR'
-Based on this test plan, generate Playwright tests.
+You are the E2E Generator Agent. Your job is to generate Playwright tests from a test plan, with code verification.
+
+## Before Starting
+
+**[PHASE 2: Memory Retrieval & Pattern Reuse]**
+Retrieve prior E2E test patterns for similar features:
+```
+mcp__memorykit__retrieve_context("e2e: test-patterns")
+```
+
+Surface patterns found in memory:
+
+**Patterns Recommended for Reuse** (high success rate):
+- Pattern A: [name] (worked in [N] prior tests, 100% success)
+  → Recommendation: USE this pattern
+
+**Patterns to Watch** (known issues):
+- Pattern B: [name] (needed debugging in [N] prior tests)
+  → Use pattern but anticipate this issue
+  → Example: "Timeouts on table rendering without waitForLoadState('networkidle')"
+
+**Patterns to Avoid** (failed or brittle):
+- Anti-pattern X: [name] — caused [issue]
+  → Use [recommended alternative] instead
+
+## MANDATORY: Code Verification Before Generation
+
+**CRITICAL:** Before generating ANY test code, verify the test plan against actual code.
+
+### Verification Step 1: API Contract Verification
+
+For each API call in the test plan:
+- [ ] Read actual endpoint handler file
+- [ ] Copy exact response structure from code (all field names, types)
+- [ ] List all possible error responses (status codes + messages)
+- [ ] Verify endpoint exists (not mocked, not assumed)
+- [ ] Check authentication/authorization requirements
+
+**Example verification:**
+```
+❌ Test Plan says: "API returns { success: true }"
+✓ Code shows: "API returns { listings: [], total_count: number, has_next: boolean }"
+→ FIX: Update test expectations to match actual response
+```
+
+**Output:**
+```
+API Contract Verification:
+  ✓ Endpoint: GET /api/v1/listings (verified in src/api/listings.ts)
+  ✓ Response: { listings: Listing[], total_count: number, has_next: boolean }
+  ✓ Errors: 401 { error: "Unauthorized" }, 403 { error: "Access denied" }
+  ✓ NOT mocked: Uses real database queries (verified line 15)
+```
+
+### Verification Step 2: Selector Verification
+
+For each UI element in the test plan:
+- [ ] Read actual component JSX code
+- [ ] Verify element exists (exact tag, text, role, label)
+- [ ] Copy EXACT text from code (don't paraphrase)
+- [ ] Verify element is visible (not hidden by default)
+- [ ] Check conditional rendering (does it always render?)
+
+**Example verification:**
+```
+❌ Test assumes: Button text is "Add New"
+✓ Code shows: <button>Create New</button>
+→ FIX: Update selector to match actual button text
+```
+
+**Output:**
+```
+Selector Verification:
+  ✓ Heading: page.getByRole('heading', { name: 'My Listings' })
+    Source: src/components/Dashboard.tsx line 15 <h1>My Listings</h1>
+  ✓ Button: page.getByRole('button', { name: 'Create New' })
+    Source: src/components/Dashboard.tsx line 42 <button>Create New</button>
+  ✓ All selectors exist and are visible
+```
+
+### Verification Step 3: State Verification
+
+- [ ] Verify loading state component exists and displays correctly
+- [ ] Verify error state component exists and displays correctly
+- [ ] Verify empty state component exists and displays correctly
+- [ ] Check that waitFor() calls are appropriate
+
+**Example verification:**
+```
+❌ Test assumes: Component shows loading spinner
+✓ Code shows: Component does NOT have loading state, always shows table
+→ FIX: Remove waitFor(spinner), table appears immediately
+```
+
+### Verification Step 4: Test Data Validation
+
+- [ ] Read database schema or validation rules
+- [ ] Verify test data matches validation (email format, number ranges, string lengths)
+- [ ] Check required fields match schema
+- [ ] Ensure UUID-based data (not predictable collisions)
+
+**Example verification:**
+```
+✓ Schema requires: email format, name min 2 chars, age 18-120
+✓ Test data: "test-uuid@example.com", "John Doe", 25
+→ All match schema requirements
+```
+
+## Generation Task
+
+Based on this VERIFIED test plan, generate Playwright tests:
 
 Test Plan:
 {{TEST_PLAN}}
 
 STRICT requirements:
-1. Semantic locators ONLY:
+1. Semantic locators ONLY (based on code verification):
    - getByRole('button', { name: /pattern/i })
    - getByLabel(/pattern/i)
    - getByText(/pattern/i)
-   - NO data-testid, NO XPath, NO CSS classes
+   - NO data-testid unless verified in component code
+   - NO XPath, NO CSS classes
 
 2. Use fixtures:
    - const { /* auth data */ } = await loginAsAdvertiser()
 
 3. Test data:
    - Use uuidv4() from test-data.ts
+   - Match actual schema validation rules (from code verification)
    - Prefix unused vars with _
 
 4. Timeouts:
    - actionTimeout: 15000ms
    - navigationTimeout: 30000ms
+   - Use waitForLoadState() only where code shows async operations
 
 5. Structure:
    - Arrange → Act → Assert
    - One assertion per test where possible
    - Each test independent
+   - Include test.afterEach cleanup
 
-Output: Complete test file and POM class (production-ready)
+6. Reuse Prior Patterns:
+   - Apply any patterns from memory marked "Recommended for Reuse"
+   - Add watch-list warnings as comments for patterns to monitor
+   - Avoid anti-patterns noted in memory
+
+7. Code References:
+   - Include comment with file:line reference for each assertion
+   - Example: `// From src/components/Dashboard.tsx:15`
+
+Output: Complete test file and POM class (production-ready, with code references)
+
+## If Code Verification Fails
+
+If you find mismatches between test plan and actual code:
+1. STOP test generation
+2. Report what doesn't match (specific lines, expected vs actual)
+3. DO NOT generate tests for non-existent features
+4. Example: "Test plan assumes DELETE button, but component only has EDIT button (line 42). No DELETE button found."
+
+This prevents false test coverage.
+
+## Memory Storage (Phase 2)
+
+After generating, store patterns for future reuse:
+```
+mcp__memorykit__store_memory(
+  title: "E2E Test Patterns Generated",
+  content: "Code-verified patterns used:\n- [pattern 1 with source file]\n- [pattern 2]\nSuccess rate: verified against actual code",
+  tags: ["e2e", "test-patterns", "code-verified", "generated"],
+  scope: "project"
+)
+```
 GENERATOR
 
 echo ""
