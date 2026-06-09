@@ -563,9 +563,10 @@ e2e-testing-setup/                # Bootstrap package (you are here)
     │   ├── pom/                   # Page Object Models
     │   └── utils/                 # Test utilities
     │
-    ├── docs/                      # Documentation (7 essential guides)
-    │   ├── E2E_CODE_READING_GUIDE.md          # Code-reading enforcement for agents
-    │   ├── E2E_DOCKER_SETUP.md                # Docker + Local E2E guide
+    ├── docs/                      # Documentation (8 essential guides)
+    │   ├── E2E_TEST_SCOPE_GUARDRAILS.md      # Keep tests simple (max 15 lines, 1 assertion)
+    │   ├── E2E_CODE_READING_GUIDE.md         # Code-reading enforcement for agents
+    │   ├── E2E_DOCKER_SETUP.md               # Docker + Local E2E guide
     │   ├── E2E_PRODUCTION_READINESS.md       # Phase -1: validate code first
     │   ├── E2E_DEEP_AUDIT_CHECKLIST.md       # Phase 0: before pipeline
     │   ├── E2E_PIPELINE_AUDIT.md             # Phase 8: after pipeline
@@ -599,6 +600,7 @@ your-project/
 │       └── test-data.ts
 │
 ├── docs/                              # 👈 COPIED FROM TEMPLATE
+│   ├── E2E_TEST_SCOPE_GUARDRAILS.md   # Keep tests simple and maintainable
 │   ├── E2E_DOCKER_SETUP.md            # Docker + Local E2E best practices
 │   ├── E2E_PRODUCTION_READINESS.md    # Phase -1: Validate code before tests
 │   ├── E2E_DEEP_AUDIT_CHECKLIST.md    # Phase 0: Read BEFORE pipeline
@@ -617,6 +619,7 @@ your-project/
 
 | File | When to Read | What It Does |
 |------|-------------|--------------|
+| **E2E_TEST_SCOPE_GUARDRAILS.md** | **CRITICAL: Before each feature** | Enforces simple, maintainable tests. Max 15 lines, 1 assertion, 5 actions. Prevents complex tests. |
 | **E2E_CODE_READING_GUIDE.md** | **Before Planner/Generator run** | How agents read code to avoid assumptions. Red flags, checklists, examples. Critical for accurate tests. |
 | **E2E_DOCKER_SETUP.md** | **First time setup** | Complete Docker setup guide. How to run backend/database in Docker while tests run locally. Includes troubleshooting. |
 | **E2E_PRODUCTION_READINESS.md** | **BEFORE Phase 0** | Validates code is production-ready (not mock-heavy). Checks APIs, components, test data. |

@@ -520,6 +520,33 @@ mcp__memorykit__store_memory(
 )
 ```
 
+## Test Scope Guardrails (CRITICAL)
+
+**Read before creating test plan:**
+- Read: docs/E2E_TEST_SCOPE_GUARDRAILS.md
+- Apply guardrails to test plan:
+  - ✓ One feature per test (not multiple features)
+  - ✓ One scenario per test (not multiple scenarios)
+  - ✓ Simple flows (max 5 user actions per test)
+  - ✓ Keep test count reasonable (8-12 tests for average feature)
+  - ✗ Avoid: Complex edge case chains
+  - ✗ Avoid: Testing multiple features in one test
+  - ✗ Avoid: Hundreds of test permutations
+
+**Example: What NOT to do**
+❌ Plan: "1. User logs in. 2. Creates listing. 3. Adds 5 photos. 4. Changes status. 5. Edits price. 6. Deletes listing. 7. Verifies email. 8. Checks API."
+→ This is testing 6+ different features in one flow — split it!
+
+**Example: What TO do**
+✅ Plan:
+  AC1: Navigation to create page works
+  AC2: Form accepts valid title
+  AC3: Form accepts valid description
+  AC4: Form rejects empty title
+  AC5: Shows success message
+  AC6: Redirects to listing view
+→ 6 simple tests, one feature each, easy to maintain
+
 ## Enforcement
 
 If you cannot find code to verify a test scenario:
@@ -527,7 +554,11 @@ If you cannot find code to verify a test scenario:
 - Report what's missing
 - Example: "Cannot find Delete button in component. Component has: Heading, Edit button, Cancel button. No Delete."
 
-This prevents false test coverage.
+If test plan is too complex (violates guardrails):
+- STOP and simplify before proceeding
+- Example: "Test plan has 10 actions per test. Guardrail: max 5. Simplify by splitting into 2 tests."
+
+This prevents false test coverage and unnecessary complexity.
 PLANNER
 
 echo ""
@@ -873,15 +904,32 @@ If you find test duplication with existing tests:
 
 Don't generate duplicate tests. Each test must have a clear reason to exist.
 
-## If Pragmatism Fails
+## Test Scope Guardrails (CRITICAL - ENFORCE)
 
-If a test scenario is too complex:
-1. STOP test generation
-2. Report why it's complex (X interactions, Y assertions, etc.)
-3. Recommend splitting it into separate tests
-4. Example: "Test has 7 interactions (login → navigate → fill form → submit → verify → click → verify). This should be 3 separate tests: form submission, redirect, verification."
+**Before generating each test, verify it meets guardrails:**
+- ✓ Max 1-2 assertions per test (usually 1)
+- ✓ Max 15 lines per test
+- ✓ Max 5 user actions per test
+- ✓ One feature per test (not multiple features)
+- ✓ Simple flow (not complex state combinations)
 
-Complex tests are fragile and hard to debug. Split them.
+**If test violates guardrails, STOP and fix:**
+
+Example violation: "Test has 8 actions (login → navigate → fill → submit → verify → edit → submit → verify)"
+→ This should be 2 separate tests:
+   Test 1: "Create listing and show success" (5 lines, 3 actions)
+   Test 2: "Edit listing and update" (5 lines, 3 actions)
+
+Example violation: "Test checks 5 different things (page load, form visible, button enabled, data loaded, error message)"
+→ Each check should be separate test:
+   Test 1: "Page loads successfully" (assert page loaded)
+   Test 2: "Form is visible" (assert form visible)
+   Test 3: "Button is enabled" (assert button enabled)
+   Etc.
+
+**Read for details:** docs/E2E_TEST_SCOPE_GUARDRAILS.md
+
+Complex tests are fragile, hard to debug, and hard to maintain. Simple tests catch real bugs.
 
 ## Memory Storage (Phase 2)
 
