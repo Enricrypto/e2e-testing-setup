@@ -385,6 +385,94 @@ State Flow: DashboardPage.tsx
   ✓ Empty: Shows "No listings created yet" when listings.length === 0
 ```
 
+## Deduplication Check (MANDATORY)
+
+**Before planning ANY tests, audit existing tests to avoid duplication.**
+
+1. List all existing test files:
+```bash
+ls frontend/e2e/tests/*/
+```
+
+2. For each existing test file, read the test names and what they cover:
+   - Document what each test does (exact assertion, what it validates)
+   - Identify scenarios ALREADY covered
+
+3. Create a "Coverage Map" of existing tests:
+```
+✓ Existing coverage:
+  - Happy path: Create listing → redirects to success page (test 01-*)
+  - Auth error: Missing auth → shows 401 error (test 02-*)
+  - Validation: Empty title → shows required field error (test 03-*)
+  - Loading state: During fetch → shows spinner (test 04-*)
+  - Empty state: No listings → shows "no data" message (test 05-*)
+
+❌ NOT covered:
+  - Permission error (403)
+  - Network timeout
+  - Pagination edge cases
+```
+
+**Any test you plan MUST:**
+- Not duplicate an existing test's assertions
+- Cover a scenario NOT in the coverage map above
+- Have a clear reason to exist
+
+If you plan a test that duplicates an existing test, EXPLAIN why you're redundant and either:
+1. Skip it (recommended if really identical)
+2. Combine it with the existing test (if they're related)
+3. Justify it (only if it tests a genuinely different aspect)
+
+## Pragmatism Filter (MANDATORY)
+
+**Only plan tests that are pragmatic to write and maintain.**
+
+### ❌ Reject These Complex Flows
+- Multi-step flows with >3-4 user interactions
+- Flows that test multiple independent features in one test
+- Tests that require complex state setup (>2 API calls to prepare data)
+- Tests that chain assertions across unrelated user actions
+- Tests that verify internal implementation details (mock behavior)
+
+**Why?** Complex flows are fragile, slow, and hard to debug. When one step fails, the whole test fails, making it unclear what actually broke.
+
+### ✓ Accept These Pragmatic Tests
+- Single-scenario tests: One user action → One expected result
+- Independent tests: Each test can run in any order, doesn't depend on state from other tests
+- Clear failures: When a test fails, you know exactly what broke
+- Examples:
+  - "User clicks Create → Form appears" ✓ (1 action, 1 result)
+  - "User submits invalid email → Error message shows" ✓ (1 action, 1 validation)
+  - "Page loads with no data → Empty state shows" ✓ (1 state, 1 result)
+  - "User clicks Create, fills form, submits, navigates to list, verifies row, clicks edit, changes title, submits, navigates back" ❌ (too many interactions, too many things to break)
+
+### Rule: Max 3-4 Interactions Per Test
+
+If a test requires more than 3-4 user interactions, SPLIT IT:
+
+❌ **Don't do this:**
+```
+1. User logs in
+2. Navigates to listings
+3. Clicks Create
+4. Fills form
+5. Submits
+6. Verifies success message
+7. Navigates to list
+8. Verifies new listing appears
+9. Clicks listing
+10. Verifies details page
+```
+
+✓ **Do this instead:**
+```
+Test 1: Form submission → Success message (steps 3-6)
+Test 2: Success redirects → New listing in list (steps 7-8)
+Test 3: Clicking listing → Details page loads (steps 9-10)
+```
+
+Each test stands alone and tests ONE thing.
+
 ## Exploration & Planning
 
 Feature: {{FEATURE_NAME}}
@@ -402,8 +490,23 @@ Reference any prior patterns from memory to inform your plan.
 
 **CRITICAL:** Every test scenario must reference actual code lines.
 
+**CRITICAL:** Every test scenario must pass the pragmatism filter above:
+- Single focused assertion (not chained flows)
+- Max 3-4 interactions
+- Not duplicating existing tests
+- Clear reason to exist
+
 Format: Markdown with clear sections and code references.
 Return a comprehensive test plan document.
+
+For each test scenario you plan, include a justification:
+```
+Test: [name]
+Covers: [specific scenario from code]
+Why: [why this matters, what it validates]
+Existing coverage: [does another test cover this? if yes, skip or combine]
+Interactions: [list the 2-3 user actions]
+```
 
 ## Memory Storage (Phase 1)
 
@@ -552,6 +655,135 @@ Selector Verification:
 → All match schema requirements
 ```
 
+## Deduplication Validation (MANDATORY)
+
+**CRITICAL:** Before generating ANY code, validate that tests don't duplicate existing tests.
+
+### Step 1: Read Existing Tests
+
+```bash
+ls frontend/e2e/tests/*/
+```
+
+For each existing test file, read the actual test code and document:
+- [ ] What each `test('...')` validates (exact assertion)
+- [ ] What data it sets up
+- [ ] What user action it performs
+- [ ] What result it checks
+
+### Step 2: Compare Test Plan Against Existing Tests
+
+For EACH test in the test plan:
+1. **Assertion match?** Does an existing test check the same thing?
+2. **Setup match?** Do tests use identical data setup?
+3. **Flow overlap?** Do tests navigate the same path and verify the same states?
+4. **Purpose overlap?** Do tests validate the same behavior from different angles?
+
+**If overlap exists:**
+- Option A: SKIP this test (if really identical)
+- Option B: COMBINE with existing test (if related)
+- Option C: DOCUMENT why it's needed (only if genuinely different aspect)
+
+**Example deduplication check:**
+```
+Test Plan: "User submits form → success message shows"
+Existing tests:
+  ✓ Test 01-create-listing.spec.ts has a test called "successfully creates listing"
+    → That test also submits the form and checks for success message
+  ❌ DUPLICATE: Skip this test or combine with existing test
+
+Test Plan: "User submits invalid email → validation error shows"
+Existing tests:
+  ✓ Test 02-form-validation.spec.ts has tests for "required fields" validation
+  ✓ But it doesn't test email format specifically
+  ✅ NOT DUPLICATE: This validates a different error scenario, keep it
+```
+
+### Step 3: Test Design Justification
+
+For each test you generate, include a one-line comment in the code:
+
+```typescript
+// Test: Form submission with valid data → success message appears
+// Covers: Happy path form submission (not covered in existing tests)
+// Why: Validates that form posts data correctly and user gets feedback
+test('successfully submits listing form', async ({ page, advertiser }) => {
+  // ...
+});
+
+// Test: Email validation error message
+// Covers: Specific email format validation (Test 02 doesn't cover this)
+// Why: Ensures invalid email format is caught and displayed
+test('shows validation error for invalid email format', async ({ page }) => {
+  // ...
+});
+```
+
+## Pragmatism Enforcement (MANDATORY)
+
+**Every test MUST be pragmatic to write and maintain.**
+
+### Reject Complex Test Patterns
+
+**❌ Don't generate tests with:**
+- More than 3-4 user interactions in a single test
+- Multiple independent assertions in one test
+- Complex state setup (>2 API calls to prepare data)
+- Chained actions where one failure cascades to all subsequent assertions
+
+**✓ Generate tests with:**
+- One focused user action (or one state condition)
+- One primary assertion (what the user should see)
+- Quick setup (fixture login, maybe one API call)
+- Clear naming that describes what's being tested
+
+### Test Scope Rules
+
+If your test has more than 3-4 interactions, SPLIT IT:
+
+```typescript
+// ❌ DON'T: Complex multi-step flow
+test('user creates listing and views it in dashboard', async ({ page }) => {
+  await page.goto('/create');
+  await page.fill('input[name="title"]', 'My Listing');
+  await page.fill('textarea[name="description"]', 'A great place');
+  await page.click('button:has-text("Create")');
+  await page.waitForURL('/dashboard');
+  await expect(page.getByText('My Listing')).toBeVisible();
+  await page.click('text=My Listing');
+  await page.waitForURL('/listing/*');
+  await expect(page.getByRole('heading', { name: 'My Listing' })).toBeVisible();
+});
+
+// ✓ DO: Split into separate focused tests
+test('successfully submits listing form', async ({ page }) => {
+  await page.goto('/create');
+  await page.fill('input[name="title"]', 'My Listing');
+  await page.fill('textarea[name="description"]', 'A great place');
+  await page.click('button:has-text("Create")');
+  // One assertion: form submission worked
+  await expect(page).toHaveURL('/dashboard');
+});
+
+test('created listing appears in dashboard', async ({ page }) => {
+  const { listing } = await createTestListing(); // Setup via API, not manual steps
+  await page.goto('/dashboard');
+  // One assertion: listing is visible
+  await expect(page.getByText(listing.title)).toBeVisible();
+});
+
+test('clicking listing opens details page', async ({ page }) => {
+  const { listing } = await createTestListing();
+  await page.goto('/dashboard');
+  await page.click(`text=${listing.title}`);
+  // One assertion: navigated to correct URL and heading is visible
+  await expect(page).toHaveURL(`/listing/${listing.id}`);
+  await expect(page.getByRole('heading', { name: listing.title })).toBeVisible();
+});
+```
+
+Each test is independent, fast, and fails clearly.
+
 ## Generation Task
 
 Based on this VERIFIED test plan, generate Playwright tests:
@@ -560,40 +792,64 @@ Test Plan:
 {{TEST_PLAN}}
 
 STRICT requirements:
-1. Semantic locators ONLY (based on code verification):
+
+0. **No duplication** (BLOCKING):
+   - Validate test plan is NOT duplicating existing tests
+   - If duplication found: STOP and report before generating code
+   - Message format: "Test [name] duplicates existing test [file:test-name]. Recommendation: Skip or combine."
+
+1. **Pragmatism only** (BLOCKING):
+   - Max 3-4 user interactions per test
+   - One focused assertion (or one group of related assertions)
+   - If a test is complex: SPLIT it into separate tests
+   - Name tests clearly so developers know what breaks when they fail
+
+2. Semantic locators ONLY (based on code verification):
    - getByRole('button', { name: /pattern/i })
    - getByLabel(/pattern/i)
    - getByText(/pattern/i)
    - NO data-testid unless verified in component code
    - NO XPath, NO CSS classes
 
-2. Use fixtures:
+3. Use fixtures:
    - const { /* auth data */ } = await loginAsAdvertiser()
+   - Use fixtures for data setup, not manual page interactions
 
-3. Test data:
+4. Test data:
    - Use uuidv4() from test-data.ts
    - Match actual schema validation rules (from code verification)
    - Prefix unused vars with _
+   - Setup data via API/fixtures when possible (faster, cleaner)
 
-4. Timeouts:
+5. Timeouts:
    - actionTimeout: 15000ms
    - navigationTimeout: 30000ms
    - Use waitForLoadState() only where code shows async operations
 
-5. Structure:
+6. Structure:
    - Arrange → Act → Assert
-   - One assertion per test where possible
-   - Each test independent
+   - One assertion per test where possible (or one logical group)
+   - Each test independent (no test should depend on another test's state)
    - Include test.afterEach cleanup
 
-6. Reuse Prior Patterns:
+7. Reuse Prior Patterns:
    - Apply any patterns from memory marked "Recommended for Reuse"
    - Add watch-list warnings as comments for patterns to monitor
    - Avoid anti-patterns noted in memory
 
-7. Code References:
+8. Code References:
    - Include comment with file:line reference for each assertion
    - Example: `// From src/components/Dashboard.tsx:15`
+   - Include test justification comment (what this test covers and why)
+
+9. Design Justification:
+   - For each test, add a comment explaining:
+     ```
+     // Test: [what user does]
+     // Covers: [what scenario this validates]
+     // Why: [why this matters / what bug this prevents]
+     // Existing: [does another test cover this? if yes, explain why this is different]
+     ```
 
 Output: Complete test file and POM class (production-ready, with code references)
 
@@ -606,6 +862,26 @@ If you find mismatches between test plan and actual code:
 4. Example: "Test plan assumes DELETE button, but component only has EDIT button (line 42). No DELETE button found."
 
 This prevents false test coverage.
+
+## If Deduplication Fails
+
+If you find test duplication with existing tests:
+1. STOP test generation
+2. Report the duplication (test plan name → existing test file:test-name)
+3. Recommend: Skip, combine, or justify why this is needed
+4. Example: "Test 'successfully creates listing' duplicates existing test in 01-create-listing.spec.ts. Recommendation: Use existing test or combine."
+
+Don't generate duplicate tests. Each test must have a clear reason to exist.
+
+## If Pragmatism Fails
+
+If a test scenario is too complex:
+1. STOP test generation
+2. Report why it's complex (X interactions, Y assertions, etc.)
+3. Recommend splitting it into separate tests
+4. Example: "Test has 7 interactions (login → navigate → fill form → submit → verify → click → verify). This should be 3 separate tests: form submission, redirect, verification."
+
+Complex tests are fragile and hard to debug. Split them.
 
 ## Memory Storage (Phase 2)
 
