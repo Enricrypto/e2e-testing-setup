@@ -1121,6 +1121,26 @@ PKG_EOF
 fi
 
 echo ""
+echo "📦 Installing Playwright and dependencies..."
+echo ""
+
+# Install Playwright with specific pinned versions (prevents version mismatch across environments)
+npm install --save-dev "@playwright/test@1.40.1" 2>/dev/null && echo "✓ Installed @playwright/test@1.40.1" || echo "⚠ Could not install @playwright/test"
+
+# Optional: Install Playwright MCP for better AI integration
+if npm install --save-dev "@playwright/mcp@1.0.0" 2>/dev/null; then
+  echo "✓ Installed @playwright/mcp@1.0.0 (optional, for AI agent integration)"
+else
+  echo "⚠ @playwright/mcp not available yet (optional, skipping)"
+fi
+
+# Install uuid for test data generation
+npm install "uuid@9.0.0" 2>/dev/null && echo "✓ Installed uuid@9.0.0" || echo "⚠ Could not install uuid"
+npm install --save-dev "@types/uuid@9.0.2" 2>/dev/null && echo "✓ Installed @types/uuid@9.0.2" || echo "⚠ Could not install @types/uuid"
+
+echo ""
+
+echo ""
 echo "✅ Installation complete!"
 echo ""
 echo "Next steps:"
