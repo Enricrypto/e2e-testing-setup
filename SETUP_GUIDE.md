@@ -81,6 +81,68 @@ ls scripts/phase3-pipeline.sh
 
 ---
 
+## MemoryKit Integration (Optional)
+
+This system optionally integrates with **MemoryKit** for knowledge compounding across features.
+
+### If You Have MemoryKit
+
+MemoryKit enables AI agents to remember test patterns from prior sessions:
+- **Planner** retrieves similar test patterns from previous features
+- **Generator** reuses proven test patterns (faster code generation)
+- **Healer** learns from prior failure patterns (better debugging)
+- Each feature gets faster (40% speed improvement after 5-10 features)
+
+**MemoryKit is pre-installed** if you have Claude Code with MCP support.
+
+### If You Don't Have MemoryKit
+
+**Tests work perfectly without it.** MemoryKit is completely optional.
+
+Without MemoryKit:
+- ✅ Tests still run and pass
+- ✅ Agents still generate good code
+- ✅ Pipeline still works end-to-end
+- ⚠️ Agents start from scratch each feature (no knowledge compounding)
+
+**You re-describe patterns each session**, but that's fine for small teams or occasional feature work.
+
+### How to Tell If MemoryKit Is Available
+
+When you run `./scripts/phase3-pipeline.sh`, look for this message:
+
+```bash
+# WITH MemoryKit:
+[MemoryKit] Retrieving prior patterns for "advertiser-dashboard"...
+✓ Found 3 similar patterns from prior features
+
+# WITHOUT MemoryKit:
+[MemoryKit] Not available (proceeding without memory)
+→ Agents will explore code from scratch
+```
+
+### Enabling MemoryKit (Advanced)
+
+If you want to install MemoryKit:
+
+1. **Verify Claude Code is running** with MCP support
+2. **Install MemoryKit MCP**:
+   ```bash
+   # Follow: https://github.com/antoniorapozo/memorykit-mcp
+   ```
+3. **Restart Claude Code**
+4. **Re-run the pipeline** — agents will automatically use MemoryKit
+
+No other changes needed. The pipeline automatically detects and uses MemoryKit if available.
+
+### Bottom Line
+
+- **Starting out?** Don't worry about MemoryKit. Focus on writing good tests.
+- **Have many features?** MemoryKit saves time (optional upgrade later).
+- **Already installed?** Great! Agents will automatically use it.
+
+---
+
 ## Initial Dependencies
 
 Install Playwright and required packages:
@@ -195,6 +257,86 @@ npm run test:e2e:local        # Run tests with local timeouts
 npm run test:e2e:ui          # Run with interactive UI
 npm run test:e2e:debug       # Debug mode with inspector
 ```
+
+---
+
+## Test Setup & Teardown
+
+Your project includes `global-setup.ts` and `global-teardown.ts` for one-time setup/cleanup:
+
+### Global Setup (Runs Once Before All Tests)
+
+Used for:
+- Database initialization
+- Test data seeding
+- Verifying backend is ready
+- Starting services
+
+Location: `frontend/e2e/global-setup.ts`
+
+Example:
+```typescript
+// Verifies backend is running
+async function globalSetup() {
+  await verifyBackendIsReady()
+  await initializeTestDatabase()
+}
+```
+
+### Global Teardown (Runs Once After All Tests)
+
+Used for:
+- Database cleanup
+- Service shutdown
+- Report generation
+
+Location: `frontend/e2e/global-teardown.ts`
+
+Example:
+```typescript
+// Cleans up after all tests complete
+async function globalTeardown() {
+  await cleanupTestDatabase()
+  await generateTestSummary()
+}
+```
+
+### Fixture Setup/Teardown (Per Test)
+
+Runs before each individual test and cleans up after:
+
+Location: `frontend/e2e/tests/fixtures.ts`
+
+Example:
+```typescript
+// Creates test user before test, deletes after
+test.extend({
+  testUser: async ({ apiClient }, use) => {
+    // SETUP: Create user
+    const user = await apiClient.post('/auth/register', {...})
+    
+    // TEST RUNS HERE
+    await use(user)
+    
+    // TEARDOWN: Delete user
+    await apiClient.delete(`/auth/users/${user.id}`)
+  }
+})
+```
+
+### When to Use Each
+
+| Goal | Tool | Runs |
+|------|------|------|
+| Initialize database once | global-setup | Once (before all) |
+| Create account for ONE test | fixture | Per test |
+| Cleanup after ONE test | fixture | Per test |
+| Reset database for all tests | global-teardown | Once (after all) |
+
+**Recommended pattern:**
+- Global setup: One-time initialization
+- Fixtures: Per-test user creation/cleanup
+- Global teardown: Final cleanup and reporting
 
 ---
 

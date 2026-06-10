@@ -730,6 +730,149 @@ jobs:
 
 ---
 
+## Docker Networking Architecture
+
+### Network Layout
+
+```
+Host Machine (Your Computer)
+├─ localhost:3000  ← Frontend (Next.js dev server)
+├─ localhost:5001  ← Nginx proxy (maps to api:5000)
+└─ localhost:5432  ← PostgreSQL (mapped from docker)
+
+Docker Network (Internal)
+├─ frontend:3000   ← Frontend (accessible from api container)
+├─ api:5000        ← Backend API
+└─ postgres:5432   ← Database
+```
+
+### Connection URLs
+
+**From Tests Running on Host:**
+```
+Frontend: http://localhost:3000
+Backend API: http://localhost:5001 (or through nginx)
+Database: localhost:5432 (mapped to host)
+```
+
+**From Inside Docker (Service-to-Service):**
+```
+Frontend: http://frontend:3000
+Backend API: http://api:5000
+Database: postgres://postgres:5432
+```
+
+### Important: Use Service Names Inside Docker
+
+When backend container needs to connect to database:
+
+```yaml
+# docker-compose.yml
+services:
+  api:
+    environment:
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/mydb
+      # ↑ Use 'postgres' (service name), not 'localhost'
+```
+
+When tests (running on host) connect to backend:
+
+```typescript
+// playwright.config.ts
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001'
+// ↑ Use 'localhost' for host, not 'api:5000'
+```
+
+### Common Docker Networking Issues
+
+#### "Connection refused to localhost:5001"
+
+**Causes:**
+- Backend container not running
+- Docker Desktop not running
+- Port 5001 not mapped in docker-compose
+
+**Fix:**
+```bash
+# Check if containers are running
+docker-compose ps
+
+# Check if Docker Desktop is running
+docker ps
+
+# Check port mapping
+docker-compose port api 5000
+# Should show: 0.0.0.0:5001
+```
+
+#### "Backend can't connect to database"
+
+**Problem:** Backend inside Docker tries to use `localhost:5432` instead of `postgres:5432`
+
+**Fix:**
+```yaml
+# docker-compose.yml
+services:
+  api:
+    environment:
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/mydb
+      # Use service name 'postgres', not 'localhost'
+```
+
+#### "Can't find frontend service from backend"
+
+**Problem:** Tests run on host, backend runs in Docker, they need different URLs
+
+**Solution:**
+```typescript
+// tests/fixtures.ts
+const BACKEND_URL = 'http://localhost:5001'  // From host
+
+// In backend container, can access:
+// http://frontend:3000 (inside Docker network)
+```
+
+### Debugging Network Issues
+
+```bash
+# Inspect Docker network
+docker network ls
+docker network inspect e2e-testing-setup_default
+
+# Check which container connects where
+docker-compose logs api
+docker-compose logs postgres
+
+# Test connectivity from container
+docker-compose exec api curl http://postgres:5432
+docker-compose exec api curl http://localhost:5000
+
+# From host to container
+curl http://localhost:5001/api/health
+```
+
+### Port Mapping Reference
+
+```yaml
+# docker-compose.yml port mappings
+services:
+  frontend:
+    ports:
+      - "3000:3000"      # host:container
+  
+  api:
+    ports:
+      - "5001:5000"      # maps localhost:5001 → api:5000
+  
+  postgres:
+    ports:
+      - "5432:5432"      # maps localhost:5432 → postgres:5432
+```
+
+**Key:** First number is host, second is container
+
+---
+
 ## Next: Integration with Phase 3 Pipeline
 
 The phase3-pipeline.sh script automatically uses these Docker settings when:

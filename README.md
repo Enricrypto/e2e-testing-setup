@@ -6,6 +6,27 @@ This repository contains the entire E2E testing infrastructure: working code, do
 
 ---
 
+## Table of Contents
+
+- [What This Is](#-what-this-is)
+- [Quick Start](#-quick-start-60-seconds)
+- [Docker Setup](#-docker-setup-backend--database)
+- [MemoryKit Integration](#-memorykit-integration-compounds-knowledge)
+- [Core Principles](#-how-this-system-works)
+- [The 9-Step Pipeline](#-architecture-the-9-step-pipeline)
+- [The AI Agents](#-the-ai-agents)
+- [File Structure](#-file-structure)
+- [Real Example](#-real-example-testing-a-dashboard)
+- [How to Use](#-how-to-use-this-system)
+- [Context Documents](#-the-context-documents)
+- [Key Concepts](#-key-concepts)
+- [Common Mistakes](#️-common-mistakes)
+- [Troubleshooting](#-troubleshooting)
+- [Next Steps](#-next-steps)
+- [License & Support](#-license--attribution)
+
+---
+
 ## 🎯 What This Is
 
 This is **NOT just a skill or guide**. This is a **complete working system** that includes:
@@ -1040,6 +1061,141 @@ const timeoutConfig = {
    git add frontend/e2e/
    git commit -m "feat(e2e): Add feature tests"
    ```
+
+---
+
+## 📚 Complete Documentation Index
+
+This system includes **16 comprehensive guides** to help you at every stage:
+
+### Getting Started
+
+| Guide | Purpose | Read When |
+|-------|---------|-----------|
+| **QUICK_START.md** | 5-minute overview | Immediately (fastest path) |
+| **SETUP_GUIDE.md** | Installation & first run | Before installing |
+| **PACKAGE_STRUCTURE.md** | How pieces fit together | Want to understand architecture |
+
+### Before Testing
+
+| Guide | Purpose | Read When |
+|-------|---------|-----------|
+| **E2E_PRODUCTION_READINESS.md** | Phase -1: Validate code is ready | Before starting any tests |
+| **E2E_DEEP_AUDIT_CHECKLIST.md** | Phase 0: Understand your feature | Before running pipeline |
+| **E2E_CODE_READING_GUIDE.md** | How agents read code | Before Planner/Generator run |
+
+### Test Generation Pipeline
+
+| Guide | Purpose | Read When |
+|-------|---------|-----------|
+| **E2E_PIPELINE_REFERENCE.md** | 8-step visual guide | Understand the pipeline flow |
+| **PHASE_3_AUTOMATED_PIPELINE.md** | Detailed reference (longer) | Want deep dive into each step |
+| **E2E_EXAMPLES.md** | 9 real working test examples | Learn by example (copy-paste) |
+
+### After Testing
+
+| Guide | Purpose | Read When |
+|-------|---------|-----------|
+| **E2E_PIPELINE_AUDIT.md** | Phase 8: Verify tests match code | After pipeline generates tests |
+| **E2E_SEMANTIC_LOCATORS.md** | Best practices for selectors | When reviewing/writing tests |
+
+### Practical Guides
+
+| Guide | Purpose | Read When |
+|-------|---------|-----------|
+| **E2E_DOCKER_SETUP.md** | Run backend/DB in Docker | Setting up Docker + tests |
+| **E2E_CI_CD_INTEGRATION.md** | GitHub Actions + CI/CD | Integrating tests in CI |
+| **E2E_DEBUGGING.md** | Troubleshoot test failures | When tests fail or are flaky |
+| **E2E_TEST_REPORTING.md** | View + analyze results | After tests run |
+| **E2E_RATE_LIMITING.md** | Handle API rate limits | Tests failing due to rate limits |
+| **E2E_MCP_INTEGRATION.md** | Optional Playwright MCP | Want agent exploration |
+
+### Advanced Topics
+
+| Guide | Purpose | Read When |
+|-------|---------|-----------|
+| **E2E_ACCESSIBILITY_TESTING.md** | Test for a11y compliance | Writing accessible tests |
+| **E2E_TEST_SCOPE_GUARDRAILS.md** | Keep tests simple & focused | Prevent complex tests |
+| **E2E_MONOREPO_SETUP.md** | Multiple frontend apps | Using monorepo structure |
+
+### Reference
+
+| Guide | Purpose | Read When |
+|-------|---------|-----------|
+| **VERSIONS.md** | Version history & compatibility | Check if system is current |
+| **UPDATE_GUIDE.md** | Upgrade between versions | Updating existing setup |
+| **PRAGMATISM_GUARDRAILS.md** | Deduplication + pragmatism | Ensure quality tests |
+
+### Package Helper
+
+| File | Purpose |
+|------|---------|
+| **package.json.snippet** | Copy E2E scripts to package.json |
+
+---
+
+## 🎯 Reading Paths (Pick Your Path)
+
+### Path 1: "I'm Starting from Scratch" (90 minutes)
+
+1. **QUICK_START.md** (5 min) — Overview
+2. **SETUP_GUIDE.md** (10 min) — Installation
+3. **E2E_PRODUCTION_READINESS.md** (15 min) — Validate code
+4. **E2E_DEEP_AUDIT_CHECKLIST.md** (20 min) — Audit your feature
+5. **E2E_EXAMPLES.md** (20 min) — See working examples
+6. **E2E_PIPELINE_REFERENCE.md** (10 min) — Understand flow
+7. Run pipeline: `./scripts/phase3-pipeline.sh "feature" "/path"`
+
+### Path 2: "I Have Existing E2E Tests" (60 minutes)
+
+1. **README.md** (15 min) — Understand system
+2. **E2E_PIPELINE_REFERENCE.md** (10 min) — See 8-step flow
+3. **E2E_EXAMPLES.md** (20 min) — Compare to your tests
+4. **E2E_SEMANTIC_LOCATORS.md** (10 min) — Verify locators
+5. **PRAGMATISM_GUARDRAILS.md** (5 min) — Check test quality
+
+### Path 3: "I'm Having Issues" (Varies)
+
+**Tests are failing?**
+→ Read E2E_DEBUGGING.md
+
+**Flaky tests?**
+→ Read E2E_RATE_LIMITING.md, then E2E_DEBUGGING.md
+
+**Setup problems?**
+→ Read SETUP_GUIDE.md troubleshooting
+
+**CI/CD not working?**
+→ Read E2E_CI_CD_INTEGRATION.md
+
+**Accessibility concerns?**
+→ Read E2E_ACCESSIBILITY_TESTING.md
+
+**Have multiple apps?**
+→ Read E2E_MONOREPO_SETUP.md
+
+### Path 4: "I Want to Understand Everything" (4 hours)
+
+Read **all** guides in order:
+1. QUICK_START
+2. README
+3. SETUP_GUIDE
+4. E2E_PRODUCTION_READINESS
+5. E2E_DEEP_AUDIT_CHECKLIST
+6. E2E_CODE_READING_GUIDE
+7. E2E_PIPELINE_REFERENCE
+8. PHASE_3_AUTOMATED_PIPELINE
+9. E2E_EXAMPLES
+10. E2E_SEMANTIC_LOCATORS
+11. E2E_PIPELINE_AUDIT
+12. E2E_DOCKER_SETUP
+13. E2E_CI_CD_INTEGRATION
+14. E2E_DEBUGGING
+15. E2E_TEST_REPORTING
+16. E2E_ACCESSIBILITY_TESTING
+17. E2E_MONOREPO_SETUP
+18. PRAGMATISM_GUARDRAILS
+19. VERSIONS
 
 ---
 

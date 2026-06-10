@@ -220,7 +220,17 @@ test('AC1: Dashboard loads and displays user greeting', async ({ page }) => {
 ✓ Has cleanup (test.afterEach clears session)
 ✓ Uses UUID test data (not Date.now())
 ✓ Explicit timeouts configured
+✓ Pragmatism guardrails (max 3-4 interactions per test)
+✓ Design justification comments (why each test exists)
+✓ No duplicate tests (coverage map verified)
 ```
+
+**Pragmatism Checks:**
+- Each test has ≤ 3-4 user interactions (fails if >4)
+- Each test checks 1 focused assertion (not multiple independent things)
+- Tests can run independently (no test-to-test dependencies)
+- Setup is simple (uses fixtures, not long manual setup)
+- Comments explain why test exists and what it covers
 
 **If checks fail:**
 ```

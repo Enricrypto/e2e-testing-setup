@@ -47,6 +47,29 @@ echo ""
 echo "📦 Installing E2E testing system..."
 echo ""
 
+# Ask for backend URL
+echo ""
+echo "What is your backend URL?"
+echo "  Examples:"
+echo "    http://localhost:3001  (default local Node.js backend)"
+echo "    http://localhost:5001  (Portal Aurora .NET backend)"
+echo "    http://localhost:5000  (Docker backend)"
+echo "    http://nginx           (Docker network)"
+echo ""
+read -p "Backend URL (default: http://localhost:3001): " BACKEND_URL
+BACKEND_URL="${BACKEND_URL:-http://localhost:3001}"
+
+echo ""
+echo "What is your frontend URL?"
+echo "  Examples:"
+echo "    http://localhost:3000  (default local frontend)"
+echo "    http://localhost:3001  (if on different port)"
+echo ""
+read -p "Frontend URL (default: http://localhost:3000): " FRONTEND_URL
+FRONTEND_URL="${FRONTEND_URL:-http://localhost:3000}"
+
+echo ""
+
 # Create directories
 mkdir -p frontend/e2e/{tests,pom,utils}
 mkdir -p docs
@@ -78,8 +101,8 @@ if [ -f "$SCRIPT_DIR/template/backend-Dockerfile.example" ]; then
   echo "✓ Copied backend Dockerfile example (see backend-Dockerfile.example)"
 fi
 
-# Copy playwright config
-cat > frontend/e2e/playwright.config.ts << 'PLAYWRIGHT_EOF'
+# Copy playwright config (substitute backend URL)
+cat > frontend/e2e/playwright.config.ts << PLAYWRIGHT_EOF
 import { defineConfig, devices } from '@playwright/test'
 
 // Environment configuration
@@ -88,8 +111,9 @@ const isLocal = env === 'local'
 const isCI = !!process.env.CI
 
 // Backend URL (for API calls in tests)
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001'
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000'
+// Can be overridden with BACKEND_URL environment variable
+const BACKEND_URL = process.env.BACKEND_URL || '${BACKEND_URL}'
+const FRONTEND_URL = process.env.FRONTEND_URL || '${FRONTEND_URL}'
 
 // Timeout configuration per environment
 const timeoutConfig = {
@@ -279,7 +303,7 @@ echo "===================="
 echo ""
 echo "Copy this prompt into Cursor/Claude and run the Planner:"
 echo ""
-cat << 'PLANNER'
+cat << 'PLANNER' | sed "s/{{FEATURE_NAME}}/$FEATURE_NAME/g; s/{{PAGE_PATH}}/$PAGE_PATH/g"
 You are the E2E Planner Agent. Your job is to create a test plan by reading actual code and exploring the app.
 
 ## Before Starting
@@ -1095,6 +1119,26 @@ PKG_EOF
 
   echo "✓ Added E2E npm scripts"
 fi
+
+echo ""
+echo "📦 Installing Playwright and dependencies..."
+echo ""
+
+# Install Playwright with specific pinned versions (prevents version mismatch across environments)
+npm install --save-dev "@playwright/test@1.40.1" 2>/dev/null && echo "✓ Installed @playwright/test@1.40.1" || echo "⚠ Could not install @playwright/test"
+
+# Optional: Install Playwright MCP for better AI integration
+if npm install --save-dev "@playwright/mcp@1.0.0" 2>/dev/null; then
+  echo "✓ Installed @playwright/mcp@1.0.0 (optional, for AI agent integration)"
+else
+  echo "⚠ @playwright/mcp not available yet (optional, skipping)"
+fi
+
+# Install uuid for test data generation
+npm install "uuid@9.0.0" 2>/dev/null && echo "✓ Installed uuid@9.0.0" || echo "⚠ Could not install uuid"
+npm install --save-dev "@types/uuid@9.0.2" 2>/dev/null && echo "✓ Installed @types/uuid@9.0.2" || echo "⚠ Could not install @types/uuid"
+
+echo ""
 
 echo ""
 echo "✅ Installation complete!"

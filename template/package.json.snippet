@@ -1,0 +1,109 @@
+// Add these scripts to your package.json
+// These are the E2E testing commands you'll need
+
+{
+  "scripts": {
+    // === Core E2E Commands ===
+    "e2e": "playwright test",
+    "e2e:local": "TEST_ENV=local playwright test",
+    "e2e:staging": "TEST_ENV=staging playwright test",
+    "e2e:ui": "playwright test --ui",
+    "e2e:debug": "playwright test --debug",
+    "e2e:headed": "playwright test --headed",
+    "e2e:report": "playwright show-report",
+
+    // === Development Helpers ===
+    "e2e:watch": "playwright test --watch",
+    "e2e:single": "playwright test -- --grep",  // Run: npm run e2e:single 'test name'
+
+    // === CI/CD ===
+    "e2e:ci": "CI=true playwright test",
+
+    // === Pipeline (Optional - if using phase3-pipeline.sh) ===
+    "e2e:pipeline": "./scripts/phase3-pipeline.sh"
+  }
+}
+
+// ============================================================
+// DETAILED COMMAND EXPLANATIONS
+// ============================================================
+
+/*
+Run all tests (default):
+  npm run e2e
+
+Run with local timeouts (faster):
+  npm run e2e:local
+
+Run with staging timeouts (moderate):
+  npm run e2e:staging
+
+Run with interactive UI (see results live):
+  npm run e2e:ui
+
+Debug a test (step through line-by-line):
+  npm run e2e:debug
+
+Run in headed mode (see browser):
+  npm run e2e:headed
+
+View test report after running:
+  npm run e2e && npm run e2e:report
+
+Watch mode (re-run tests as you edit):
+  npm run e2e:watch
+
+Run specific test by name:
+  npm run e2e:single 'user can log in'
+
+Run in CI/CD (headless, parallel):
+  npm run e2e:ci
+*/
+
+// ============================================================
+// TYPESCRIPT SCRIPTS (Optional - if you use TypeScript)
+// ============================================================
+
+{
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "typecheck:watch": "tsc --noEmit --watch"
+  }
+}
+
+// ============================================================
+// LINTING SCRIPTS (Optional - if you lint test code)
+// ============================================================
+
+{
+  "scripts": {
+    "lint:e2e": "eslint frontend/e2e/tests --ext .ts,.tsx",
+    "lint:e2e:fix": "eslint frontend/e2e/tests --ext .ts,.tsx --fix"
+  }
+}
+
+// ============================================================
+// REQUIRED DEPENDENCIES
+// ============================================================
+
+{
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "@playwright/mcp": "^1.0.0",  // Optional but recommended
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "uuid": "^9.0.0"
+  }
+}
+
+// ============================================================
+// INSTALL THESE WITH:
+// ============================================================
+
+/*
+npm install --save-dev @playwright/test@1.40.0 @playwright/mcp@1.0.0
+npm install --save-dev @types/node@20.0.0 typescript@5.0.0
+npm install uuid@9.0.0
+*/
