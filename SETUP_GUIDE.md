@@ -198,6 +198,86 @@ npm run test:e2e:debug       # Debug mode with inspector
 
 ---
 
+## Test Setup & Teardown
+
+Your project includes `global-setup.ts` and `global-teardown.ts` for one-time setup/cleanup:
+
+### Global Setup (Runs Once Before All Tests)
+
+Used for:
+- Database initialization
+- Test data seeding
+- Verifying backend is ready
+- Starting services
+
+Location: `frontend/e2e/global-setup.ts`
+
+Example:
+```typescript
+// Verifies backend is running
+async function globalSetup() {
+  await verifyBackendIsReady()
+  await initializeTestDatabase()
+}
+```
+
+### Global Teardown (Runs Once After All Tests)
+
+Used for:
+- Database cleanup
+- Service shutdown
+- Report generation
+
+Location: `frontend/e2e/global-teardown.ts`
+
+Example:
+```typescript
+// Cleans up after all tests complete
+async function globalTeardown() {
+  await cleanupTestDatabase()
+  await generateTestSummary()
+}
+```
+
+### Fixture Setup/Teardown (Per Test)
+
+Runs before each individual test and cleans up after:
+
+Location: `frontend/e2e/tests/fixtures.ts`
+
+Example:
+```typescript
+// Creates test user before test, deletes after
+test.extend({
+  testUser: async ({ apiClient }, use) => {
+    // SETUP: Create user
+    const user = await apiClient.post('/auth/register', {...})
+    
+    // TEST RUNS HERE
+    await use(user)
+    
+    // TEARDOWN: Delete user
+    await apiClient.delete(`/auth/users/${user.id}`)
+  }
+})
+```
+
+### When to Use Each
+
+| Goal | Tool | Runs |
+|------|------|------|
+| Initialize database once | global-setup | Once (before all) |
+| Create account for ONE test | fixture | Per test |
+| Cleanup after ONE test | fixture | Per test |
+| Reset database for all tests | global-teardown | Once (after all) |
+
+**Recommended pattern:**
+- Global setup: One-time initialization
+- Fixtures: Per-test user creation/cleanup
+- Global teardown: Final cleanup and reporting
+
+---
+
 ## Questions?
 
 - **Setup issues**: Check Prerequisites section above
